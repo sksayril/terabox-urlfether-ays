@@ -1,0 +1,667 @@
+===========================================================
+API DOCUMENTATION
+===========================================================
+
+This document provides detailed information about all the APIs available in the system,
+including request and response formats for both user and admin endpoints.
+
+-----------------------------------------------------------
+TABLE OF CONTENTS
+-----------------------------------------------------------
+1. USER APIs
+   1.1 User Registration
+   1.2 User Login
+   1.3 Get User Profile
+   1.4 Create Subscription Order
+   1.5 Verify Subscription Payment
+   1.6 Get Subscription Status
+
+2. ADMIN APIs
+   2.1 Admin Registration
+   2.2 Admin Login
+   2.3 Admin Dashboard
+   2.4 Get All Users
+   2.5 Get User Details
+   2.6 Get Subscription Statistics
+
+-----------------------------------------------------------
+1. USER APIs
+-----------------------------------------------------------
+
+1.1 User Registration
+---------------------
+Endpoint: POST /users/register
+Access: Public
+Description: Register a new user in the system
+
+Request Body:
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "password123",
+  "deviceId": "unique-device-identifier"
+}
+
+Notes:
+- Each device can only be registered to one account
+- Device ID is required for registration
+
+Successful Response (201 Created):
+{
+  "success": true,
+  "message": "User registered successfully",
+  "data": {
+    "id": "60d21b4967d0d8992e610c85",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "subscription": {
+      "isActive": false,
+      "plan": "free"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+
+Error Response (400 Bad Request):
+{
+  "message": "Please provide all required fields"
+}
+
+Error Response (400 Bad Request):
+{
+  "message": "User already exists with this email"
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+-----------------------------------------------------------
+
+1.2 User Login
+-------------
+Endpoint: POST /users/login
+Access: Public
+Description: Authenticate a user and return a token
+
+Request Body:
+{
+  "email": "john@example.com",
+  "password": "password123",
+  "deviceId": "unique-device-identifier"
+}
+
+Notes:
+- System tracks all devices used to login
+- Device ID is required for login
+
+Successful Response (200 OK):
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "id": "60d21b4967d0d8992e610c85",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "subscription": {
+      "isActive": false,
+      "plan": "free"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+
+Error Response (400 Bad Request):
+{
+  "message": "Please provide email and password"
+}
+
+Error Response (401 Unauthorized):
+{
+  "message": "Invalid email or password"
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+-----------------------------------------------------------
+
+1.3 Get User Profile
+-------------------
+Endpoint: GET /users/profile
+Access: Private (Requires token)
+Description: Get the profile of the logged-in user
+
+Headers:
+Authorization: Bearer <token>
+
+Successful Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "_id": "60d21b4967d0d8992e610c85",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "subscription": {
+      "isActive": false,
+      "plan": "free"
+    },
+    "createdAt": "2023-01-01T12:00:00.000Z",
+    "updatedAt": "2023-01-01T12:00:00.000Z"
+  }
+}
+
+Error Response (401 Unauthorized):
+{
+  "message": "Authentication required"
+}
+
+Error Response (404 Not Found):
+{
+  "message": "User not found"
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+-----------------------------------------------------------
+
+1.4 Create Subscription Order
+----------------------------
+Endpoint: POST /users/subscription/create
+Access: Private (Requires token)
+Description: Creates a Razorpay order for the ₹199 monthly subscription
+
+Headers:
+Authorization: Bearer <token>
+
+Request Body:
+{
+  "contact": "9876543210" // Optional
+}
+
+Successful Response (200 OK):
+{
+  "success": true,
+  "message": "Subscription order created",
+  "data": {
+    "order": {
+      "id": "order_JNCdN4g0nE38PQ",
+      "entity": "order",
+      "amount": 19900, // Amount in paise (₹199)
+      "amount_paid": 0,
+      "amount_due": 19900,
+      "currency": "INR",
+      "receipt": "subscription_60d21b4967d0d8992e610c85",
+      "status": "created",
+      "attempts": 0,
+      "created_at": 1623915300
+    },
+    "key_id": "rzp_test_****",
+    "user_info": {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "contact": "9876543210"
+    },
+    "subscription": {
+      "plan": "Monthly Subscription",
+      "amount": 199,
+      "currency": "INR",
+      "description": "Monthly subscription plan for Rs. 199"
+    }
+  }
+}
+
+Error Response (401 Unauthorized):
+{
+  "message": "Authentication required"
+}
+
+Error Response (404 Not Found):
+{
+  "message": "User not found"
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+-----------------------------------------------------------
+
+1.5 Verify Subscription Payment
+-----------------------------
+Endpoint: POST /users/subscription/verify
+Access: Private (Requires token)
+Description: Verifies the Razorpay payment and activates the subscription
+
+Headers:
+Authorization: Bearer <token>
+
+Request Body:
+{
+  "razorpay_order_id": "order_JNCdN4g0nE38PQ",
+  "razorpay_payment_id": "pay_JNCeMmvkROHCAp",
+  "razorpay_signature": "d89588272d9c7c27bd37041fea4a9827424b30c15438f4a34e83d1e9d83e"
+}
+
+Successful Response (200 OK):
+{
+  "success": true,
+  "message": "Payment verified. Subscription activated successfully",
+  "data": {
+    "subscription": {
+      "isActive": true,
+      "plan": "monthly",
+      "startDate": "2023-01-01T12:00:00.000Z",
+      "endDate": "2023-02-01T12:00:00.000Z",
+      "razorpayCustomerId": "cust_JNCd8fIykzPiVR"
+    },
+    "payment": {
+      "razorpayPaymentId": "pay_JNCeMmvkROHCAp",
+      "razorpayOrderId": "order_JNCdN4g0nE38PQ",
+      "razorpaySignature": "d89588272d9c7c27bd37041fea4a9827424b30c15438f4a34e83d1e9d83e",
+      "amount": 199,
+      "status": "captured",
+      "createdAt": "2023-01-01T12:00:00.000Z"
+    }
+  }
+}
+
+Error Response (400 Bad Request):
+{
+  "message": "Invalid payment signature"
+}
+
+Error Response (401 Unauthorized):
+{
+  "message": "Authentication required"
+}
+
+Error Response (404 Not Found):
+{
+  "message": "User not found"
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+-----------------------------------------------------------
+
+1.6 Get Subscription Status
+-------------------------
+Endpoint: GET /users/subscription
+Access: Private (Requires token)
+Description: Get the status of the user's subscription
+
+Headers:
+Authorization: Bearer <token>
+
+Successful Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "subscription": {
+      "isActive": true,
+      "plan": "monthly",
+      "startDate": "2023-01-01T12:00:00.000Z",
+      "endDate": "2023-02-01T12:00:00.000Z",
+      "razorpayCustomerId": "cust_JNCd8fIykzPiVR"
+    },
+    "payments": [
+      {
+        "razorpayPaymentId": "pay_JNCeMmvkROHCAp",
+        "razorpayOrderId": "order_JNCdN4g0nE38PQ",
+        "razorpaySignature": "d89588272d9c7c27bd37041fea4a9827424b30c15438f4a34e83d1e9d83e",
+        "amount": 199,
+        "status": "captured",
+        "createdAt": "2023-01-01T12:00:00.000Z"
+      }
+    ]
+  }
+}
+
+Error Response (401 Unauthorized):
+{
+  "message": "Authentication required"
+}
+
+Error Response (404 Not Found):
+{
+  "message": "User not found"
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+-----------------------------------------------------------
+2. ADMIN APIs
+-----------------------------------------------------------
+
+2.1 Admin Registration
+---------------------
+Endpoint: POST /admin/register
+Access: Public (ideally should be restricted)
+Description: Register a new admin in the system
+
+Request Body:
+{
+  "name": "Admin User",
+  "email": "admin@example.com",
+  "password": "admin123"
+}
+
+Successful Response (201 Created):
+{
+  "success": true,
+  "message": "Admin registered successfully",
+  "data": {
+    "id": "60d21b4967d0d8992e610c86",
+    "name": "Admin User",
+    "email": "admin@example.com",
+    "role": "admin",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+
+Error Response (400 Bad Request):
+{
+  "message": "Please provide all required fields"
+}
+
+Error Response (400 Bad Request):
+{
+  "message": "Admin already exists with this email"
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+-----------------------------------------------------------
+
+2.2 Admin Login
+-------------
+Endpoint: POST /admin/login
+Access: Public
+Description: Authenticate an admin and return a token
+
+Request Body:
+{
+  "email": "admin@example.com",
+  "password": "admin123"
+}
+
+Successful Response (200 OK):
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "id": "60d21b4967d0d8992e610c86",
+    "name": "Admin User",
+    "email": "admin@example.com",
+    "role": "admin",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+
+Error Response (400 Bad Request):
+{
+  "message": "Please provide email and password"
+}
+
+Error Response (401 Unauthorized):
+{
+  "message": "Invalid email or password"
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+-----------------------------------------------------------
+
+2.3 Admin Dashboard
+-----------------
+Endpoint: GET /admin/dashboard
+Access: Private (Admin only)
+Description: Get dashboard statistics and overview
+
+Headers:
+Authorization: Bearer <admin_token>
+
+Successful Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "totalUsers": 150,
+    "activeSubscriptions": 65,
+    "monthlyRevenue": 12935,
+    "monthlyTransactions": 65,
+    "recentSubscriptions": [
+      {
+        "_id": "60d21b4967d0d8992e610c87",
+        "name": "John Doe",
+        "email": "john@example.com",
+        "subscription": {
+          "isActive": true,
+          "plan": "monthly",
+          "startDate": "2023-01-01T12:00:00.000Z",
+          "endDate": "2023-02-01T12:00:00.000Z"
+        }
+      },
+      // More subscription objects...
+    ]
+  }
+}
+
+Error Response (401 Unauthorized):
+{
+  "message": "Authentication required"
+}
+
+Error Response (403 Forbidden):
+{
+  "message": "Access denied. Admin privileges required."
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+-----------------------------------------------------------
+
+2.4 Get All Users
+---------------
+Endpoint: GET /admin/users
+Access: Private (Admin only)
+Description: Get all users with pagination
+
+Headers:
+Authorization: Bearer <admin_token>
+
+Query Parameters:
+page: Page number (default: 1)
+limit: Number of items per page (default: 10)
+
+Successful Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "users": [
+      {
+        "_id": "60d21b4967d0d8992e610c87",
+        "name": "John Doe",
+        "email": "john@example.com",
+        "subscription": {
+          "isActive": true,
+          "plan": "monthly",
+          "startDate": "2023-01-01T12:00:00.000Z",
+          "endDate": "2023-02-01T12:00:00.000Z"
+        },
+        "createdAt": "2023-01-01T12:00:00.000Z"
+      },
+      // More user objects...
+    ],
+    "pagination": {
+      "total": 150,
+      "page": 1,
+      "pages": 15,
+      "limit": 10
+    }
+  }
+}
+
+Error Response (401 Unauthorized):
+{
+  "message": "Authentication required"
+}
+
+Error Response (403 Forbidden):
+{
+  "message": "Access denied. Admin privileges required."
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+-----------------------------------------------------------
+
+2.5 Get User Details
+------------------
+Endpoint: GET /admin/users/:id
+Access: Private (Admin only)
+Description: Get detailed information about a specific user
+
+Headers:
+Authorization: Bearer <admin_token>
+
+Path Parameters:
+id: User ID
+
+Successful Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "_id": "60d21b4967d0d8992e610c87",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "subscription": {
+      "isActive": true,
+      "plan": "monthly",
+      "startDate": "2023-01-01T12:00:00.000Z",
+      "endDate": "2023-02-01T12:00:00.000Z",
+      "razorpayCustomerId": "cust_JNCd8fIykzPiVR"
+    },
+    "payments": [
+      {
+        "razorpayPaymentId": "pay_JNCeMmvkROHCAp",
+        "razorpayOrderId": "order_JNCdN4g0nE38PQ",
+        "razorpaySignature": "d89588272d9c7c27bd37041fea4a9827424b30c15438f4a34e83d1e9d83e",
+        "amount": 199,
+        "status": "captured",
+        "createdAt": "2023-01-01T12:00:00.000Z"
+      }
+    ],
+    "createdAt": "2023-01-01T12:00:00.000Z",
+    "updatedAt": "2023-01-01T12:00:00.000Z"
+  }
+}
+
+Error Response (401 Unauthorized):
+{
+  "message": "Authentication required"
+}
+
+Error Response (403 Forbidden):
+{
+  "message": "Access denied. Admin privileges required."
+}
+
+Error Response (404 Not Found):
+{
+  "message": "User not found"
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+-----------------------------------------------------------
+
+2.6 Get Subscription Statistics
+----------------------------
+Endpoint: GET /admin/subscriptions
+Access: Private (Admin only)
+Description: Get subscription statistics and trends
+
+Headers:
+Authorization: Bearer <admin_token>
+
+Successful Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "subscriptionTrend": [
+      {
+        "month": "2023-01",
+        "subscriptions": 12,
+        "revenue": 2388
+      },
+      {
+        "month": "2023-02",
+        "subscriptions": 15,
+        "revenue": 2985
+      },
+      // More monthly data...
+    ],
+    "activeSubscriptions": 65,
+    "totalRevenue": 12935
+  }
+}
+
+Error Response (401 Unauthorized):
+{
+  "message": "Authentication required"
+}
+
+Error Response (403 Forbidden):
+{
+  "message": "Access denied. Admin privileges required."
+}
+
+Error Response (500 Server Error):
+{
+  "message": "Server error",
+  "error": "Error message details"
+}
+
+===========================================================
+END OF DOCUMENTATION
+===========================================================
