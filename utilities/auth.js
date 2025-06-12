@@ -55,6 +55,9 @@ const authMiddleware = async (req, res, next) => {
       isPremium: user.isPremium
     };
     
+    // Set userId for backward compatibility
+    req.userId = user._id;
+    
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Invalid token', error: error.message });
