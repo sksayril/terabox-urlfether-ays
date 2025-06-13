@@ -41,8 +41,17 @@ const authMiddleware = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Get user data
-    const user = await User.findById(decoded.id);
+    // Try to find user in User collection first
+    let user = await User.findById(decoded.id);
+    
+    // If not found in User collection, try Admin collection
+    if (!user) {
+      const admin = await Admin.findById(decoded.id);
+      if (admin) {
+        user = admin;
+      }
+    }
+    
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
     }
@@ -51,8 +60,8 @@ const authMiddleware = async (req, res, next) => {
     req.user = {
       id: user._id,
       email: user.email,
-      isAdmin: user.isAdmin,
-      isPremium: user.isPremium
+      isAdmin: user.isAdmin || false,
+      isPremium: user.isPremium || false
     };
     
     // Set userId for backward compatibility
@@ -89,7 +98,8 @@ const requireAdmin = async (req, res, next) => {
       email: admin.email,
       isAdmin: true
     };
-    
+      req.userId = admin._id;
+
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Invalid token', error: error.message });
