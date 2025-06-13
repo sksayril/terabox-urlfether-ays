@@ -103,7 +103,7 @@ router.post('/sub', requireAdmin, upload.single('image'), async (req, res) => {
 });
 
 // Get all main categories
-router.get('/main', authMiddleware, async (req, res) => {
+router.get('/main', requireAdmin, async (req, res) => {
     try {
         const categories = await Category.find({ isMainCategory: true })
             .select('_id name')
