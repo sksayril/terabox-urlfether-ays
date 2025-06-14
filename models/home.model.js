@@ -1,12 +1,23 @@
 const mongoose = require('mongoose');
 
+const imageSchema = new mongoose.Schema({
+    path: {
+        type: String,
+        required: true
+    },
+    url: {
+        type: String,
+        default: 'https://'
+    }
+});
+
 const homeSchema = new mongoose.Schema({
     thumbnailUrl: {
-        type: String,
-        default: ''
+        type: imageSchema,
+        default: () => ({})
     },
     premiumBannerUrls: {
-        type: [String],
+        type: [imageSchema],
         default: []
     },
     isActive: {

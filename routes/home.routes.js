@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const Home = require('../models/home.model');
-const { upload } = require('../utilities/s3Config');
+const { upload, handleS3UploadError } = require('../utilities/s3Config');
 const { requireAdmin } = require('../utilities/auth');
 
 // Upload home thumbnail (Admin only)
-router.post('/thumbnail', requireAdmin, upload.single('thumbnail'), async (req, res) => {
+router.post('/thumbnail', requireAdmin, upload.single('thumbnail'), handleS3UploadError, async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ 
@@ -14,22 +14,30 @@ router.post('/thumbnail', requireAdmin, upload.single('thumbnail'), async (req, 
             });
         }
 
+        const { url } = req.body;
+        const thumbnailData = {
+            path: req.file.location,
+            url: url || 'http://'
+        };
+
         const home = await Home.findOne({ isActive: true });
         if (home) {
-            home.thumbnailUrl = req.file.location;
-            await home.save();        } else {
+            home.thumbnailUrl = thumbnailData;
+            await home.save();
+        } else {
             await Home.create({
-                thumbnailUrl: req.file.location
+                thumbnailUrl: thumbnailData
             });
         }
 
         res.status(201).json({
             success: true,
             data: {
-                thumbnailUrl: req.file.location
+                thumbnailUrl: thumbnailData
             }
         });
     } catch (error) {
+        console.error('Error in thumbnail upload:', error);
         res.status(500).json({
             success: false,
             message: error.message
@@ -38,11 +46,8 @@ router.post('/thumbnail', requireAdmin, upload.single('thumbnail'), async (req, 
 });
 
 // Upload premium banner (Admin only)
-router.post('/premium-banner', requireAdmin, upload.array('banners', 5), async (req, res) => {
+router.post('/premium-banner', requireAdmin, upload.array('banners', 5), handleS3UploadError, async (req, res) => {
     try {
-        // Log the request files for debugging
-        console.log('Uploaded files:', req.files);
-        
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ 
                 success: false,
@@ -50,30 +55,33 @@ router.post('/premium-banner', requireAdmin, upload.array('banners', 5), async (
             });
         }
 
-        // Extract URLs from all uploaded files
-        const bannerUrls = req.files.map(file => file.location);
-        console.log('Banner URLs:', bannerUrls);
+        const urls = req.body.urls ? 
+            (Array.isArray(req.body.urls) ? req.body.urls : [req.body.urls]) : 
+            Array(req.files.length).fill('http://');
+
+        // Create banner data with path and url
+        const bannerData = req.files.map((file, index) => ({
+            path: file.location,
+            url: urls[index] || 'http://'
+        }));
 
         const home = await Home.findOne({ isActive: true });
         if (home) {
             // Make sure premiumBannerUrls is always an array
             const existingUrls = Array.isArray(home.premiumBannerUrls) ? home.premiumBannerUrls : [];
-            // Add new URLs to the array
-            home.premiumBannerUrls = [...existingUrls, ...bannerUrls];
+            // Add new banner data to the array
+            home.premiumBannerUrls = [...existingUrls, ...bannerData];
             await home.save();
         } else {
             await Home.create({
-                premiumBannerUrls: bannerUrls
+                premiumBannerUrls: bannerData
             });
         }
 
-        // Return all banner URLs in the response
         res.status(201).json({
             success: true,
             data: {
-                premiumBannerUrls: home ? home.premiumBannerUrls : bannerUrls,
-                uploadedUrls: bannerUrls,
-                totalCount: home ? home.premiumBannerUrls.length : bannerUrls.length
+                premiumBannerUrls: home ? home.premiumBannerUrls : bannerData
             }
         });
     } catch (error) {
@@ -101,7 +109,7 @@ router.get('/', async (req, res) => {
         res.json({
             success: true,
             data: {
-                thumbnailUrl: home.thumbnailUrl,
+                thumbnailUrl: home.thumbnailUrl || { path: '', url: 'http://' },
                 premiumBannerUrls: home.premiumBannerUrls || []
             }
         });
