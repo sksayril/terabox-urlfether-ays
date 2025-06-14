@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Admin = require('../models/admin.model');
 const User = require('../models/user.model');
-const { generateToken, hashPassword, comparePassword, authMiddleware } = require('../utilities/auth');
+const { generateToken, hashPassword, comparePassword, authMiddleware, requireAdmin } = require('../utilities/auth');
+const TopData = require('../models/topdata.model');
 
 // Admin Authentication Middleware
 const adminAuthMiddleware = async (req, res, next) => {
@@ -295,6 +296,147 @@ router.get('/subscriptions', adminAuthMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Subscription statistics error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+/**
+ * @route POST /admin/top-data
+ * @desc Create top data
+ * @access Private (Admin only)
+ */
+router.post('/top-data', requireAdmin, async (req, res) => {
+  try {
+    const { title, textdata, description, order } = req.body;
+
+    if (!title || !textdata) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and text data are required'
+      });
+    }
+
+    const topData = await TopData.create({
+      title,
+      textdata,
+      description,
+      order: order || 0,
+      isActive: true
+    });
+
+    res.status(201).json({
+      success: true,
+      data: topData
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/**
+ * @route GET /admin/top-data
+ * @desc Get all top data
+ * @access Private (Admin only)
+ */
+router.get('/top-data', requireAdmin, async (req, res) => {
+  try {
+    const topData = await TopData.find().sort({ order: 1, createdAt: -1 });
+    
+    res.status(200).json({
+      success: true,
+      data: topData
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+router.get('/get-top-data', async (req, res) => {
+  try {
+    const topData = await TopData.find()
+      .sort({ order: 1, createdAt: -1 })
+      .select('title textdata description isActive order createdAt');
+    
+    res.status(200).json({
+      success: true,
+      data: topData
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/**
+ * @route PUT /admin/top-data/:id
+ * @desc Update top data
+ * @access Private (Admin only)
+ */
+router.post('/top-data/:id', requireAdmin, async (req, res) => {
+  try {
+    const { title, textdata, description, order, isActive } = req.body;
+    const topData = await TopData.findById(req.params.id);
+
+    if (!topData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Top data not found'
+      });
+    }
+
+    if (title) topData.title = title;
+    if (textdata) topData.textdata = textdata;
+    if (description !== undefined) topData.description = description;
+    if (order !== undefined) topData.order = order;
+    if (isActive !== undefined) topData.isActive = isActive;
+
+    await topData.save();
+
+    res.status(200).json({
+      success: true,
+      data: topData
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/**
+ * @route DELETE /admin/top-data/:id
+ * @desc Delete top data
+ * @access Private (Admin only)
+ */
+router.delete('/top-data/:id', requireAdmin, async (req, res) => {
+  try {
+    const topData = await TopData.findById(req.params.id);
+
+    if (!topData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Top data not found'
+      });
+    }
+
+    await topData.remove();
+
+    res.status(200).json({
+      success: true,
+      message: 'Top data deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 });
 

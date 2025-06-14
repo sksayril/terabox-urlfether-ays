@@ -38,31 +38,46 @@ router.post('/thumbnail', requireAdmin, upload.single('thumbnail'), async (req, 
 });
 
 // Upload premium banner (Admin only)
-router.post('/premium-banner', requireAdmin, upload.single('banner'), async (req, res) => {
+router.post('/premium-banner', requireAdmin, upload.array('banners', 5), async (req, res) => {
     try {
-        if (!req.file) {
+        // Log the request files for debugging
+        console.log('Uploaded files:', req.files);
+        
+        if (!req.files || req.files.length === 0) {
             return res.status(400).json({ 
                 success: false,
-                message: 'Premium banner image is required' 
+                message: 'Premium banner images are required' 
             });
         }
+
+        // Extract URLs from all uploaded files
+        const bannerUrls = req.files.map(file => file.location);
+        console.log('Banner URLs:', bannerUrls);
 
         const home = await Home.findOne({ isActive: true });
         if (home) {
-            home.premiumBannerUrl = req.file.location;
-            await home.save();        } else {
+            // Make sure premiumBannerUrls is always an array
+            const existingUrls = Array.isArray(home.premiumBannerUrls) ? home.premiumBannerUrls : [];
+            // Add new URLs to the array
+            home.premiumBannerUrls = [...existingUrls, ...bannerUrls];
+            await home.save();
+        } else {
             await Home.create({
-                premiumBannerUrl: req.file.location
+                premiumBannerUrls: bannerUrls
             });
         }
 
+        // Return all banner URLs in the response
         res.status(201).json({
             success: true,
             data: {
-                premiumBannerUrl: req.file.location
+                premiumBannerUrls: home ? home.premiumBannerUrls : bannerUrls,
+                uploadedUrls: bannerUrls,
+                totalCount: home ? home.premiumBannerUrls.length : bannerUrls.length
             }
         });
     } catch (error) {
+        console.error('Error in premium-banner upload:', error);
         res.status(500).json({
             success: false,
             message: error.message
@@ -74,7 +89,7 @@ router.post('/premium-banner', requireAdmin, upload.single('banner'), async (req
 router.get('/', async (req, res) => {
     try {
         const home = await Home.findOne({ isActive: true })
-            .select('thumbnailUrl premiumBannerUrl');
+            .select('thumbnailUrl premiumBannerUrls');
 
         if (!home) {
             return res.status(404).json({
@@ -87,7 +102,7 @@ router.get('/', async (req, res) => {
             success: true,
             data: {
                 thumbnailUrl: home.thumbnailUrl,
-                premiumBannerUrl: home.premiumBannerUrl
+                premiumBannerUrls: home.premiumBannerUrls || []
             }
         });
     } catch (error) {
