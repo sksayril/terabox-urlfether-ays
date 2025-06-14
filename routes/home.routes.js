@@ -14,7 +14,7 @@ router.post('/thumbnail', requireAdmin, upload.single('thumbnail'), handleS3Uplo
             });
         }
 
-        const { url } = req.body;
+        const { url, searchableUrl } = req.body;
         const thumbnailData = {
             path: req.file.location,
             url: url || 'http://'
@@ -23,17 +23,20 @@ router.post('/thumbnail', requireAdmin, upload.single('thumbnail'), handleS3Uplo
         const home = await Home.findOne({ isActive: true });
         if (home) {
             home.thumbnailUrl = thumbnailData;
+            home.searchableUrl = searchableUrl || '';
             await home.save();
         } else {
             await Home.create({
-                thumbnailUrl: thumbnailData
+                thumbnailUrl: thumbnailData,
+                searchableUrl: searchableUrl || ''
             });
         }
 
         res.status(201).json({
             success: true,
             data: {
-                thumbnailUrl: thumbnailData
+                thumbnailUrl: thumbnailData,
+                searchableUrl: searchableUrl || ''
             }
         });
     } catch (error) {
@@ -97,8 +100,7 @@ router.post('/premium-banner', requireAdmin, upload.array('banners', 5), handleS
 router.get('/', async (req, res) => {
     try {
         const home = await Home.findOne({ isActive: true })
-            .select('thumbnailUrl premiumBannerUrls');
-
+            .select('thumbnailUrl premiumBannerUrls searchableUrl');
         if (!home) {
             return res.status(404).json({
                 success: false,
@@ -110,7 +112,8 @@ router.get('/', async (req, res) => {
             success: true,
             data: {
                 thumbnailUrl: home.thumbnailUrl || { path: '', url: 'http://' },
-                premiumBannerUrls: home.premiumBannerUrls || []
+                premiumBannerUrls: home.premiumBannerUrls || [],
+                searchableUrl: home.searchableUrl || ''
             }
         });
     } catch (error) {

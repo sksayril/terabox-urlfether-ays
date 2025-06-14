@@ -16,6 +16,10 @@ const homeSchema = new mongoose.Schema({
         type: imageSchema,
         default: () => ({})
     },
+    searchableUrl: {
+        type: String,
+        default: ''
+    },
     premiumBannerUrls: {
         type: [imageSchema],
         default: []
