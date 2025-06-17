@@ -146,7 +146,7 @@ router.post('/teralink', async (req, res) => {
     console.log('Received URL:', url);
 
     // Send back static response
-    res.json({
+    res.status(200).json({
         success: true,
         data: staticResponse
     });
