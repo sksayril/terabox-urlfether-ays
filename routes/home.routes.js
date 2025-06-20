@@ -135,26 +135,41 @@ router.post('/teralink', async (req, res) => {
     }
 
     try {
-        // Prepare FormData as TeraBox API expects
-        const form = new FormData();
-        form.append('url', url);
-        form.append('action', 'terabox_api_request');
-
-        const response = await axios.post('https://terabxdownloader.com/wp-admin/admin-ajax.php', form, {
-            headers: form.getHeaders()
+        // Step 1: Generate file details
+        const generateFileResponse = await axios.post('https://teradl-api.dapuntaratya.com/generate_file', {
+            url,
+            mode: 3
         });
 
-        // Assume response.data contains:
-        // title, size, thumbnail, download_link
-        const { title, size, thumbnail, download_link } = response.data;
+        if (generateFileResponse.data.status !== 'success' || !generateFileResponse.data.list || generateFileResponse.data.list.length === 0) {
+            throw new Error('Failed to generate file details');
+        }
 
+        const fileData = generateFileResponse.data;
+        const fileInfo = fileData.list[0];
+
+        // Step 2: Generate download link
+        const generateLinkResponse = await axios.post('https://teradl-api.dapuntaratya.com/generate_link', {
+            uk: fileData.uk,
+            shareid: fileData.shareid,
+            timestamp: fileData.timestamp,
+            sign: fileData.sign,
+            fs_id: fileInfo.fs_id,
+            mode: 3
+        });
+
+        if (generateLinkResponse.data.status !== 'success') {
+            throw new Error('Failed to generate download link');
+        }
+
+        // Format response to match expected structure
         res.json({
             success: true,
             data: {
-                title,
-                size,
-                thumbnail,
-                download_link
+                title: fileInfo.name,
+                size: fileInfo.size,
+                thumbnail: fileInfo.image,
+                download_link: generateLinkResponse.data.download_link.url_1
             }
         });
 
