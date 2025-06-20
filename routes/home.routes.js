@@ -169,7 +169,7 @@ router.post('/teralink', async (req, res) => {
                 title: fileInfo.name,
                 size: fileInfo.size,
                 thumbnail: fileInfo.image,
-                download_link: generateLinkResponse.data.download_link.url_1
+                download_link: generateLinkResponse.data.download_link.url_2
             }
         });
 
