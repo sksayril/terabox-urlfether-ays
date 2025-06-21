@@ -11,6 +11,7 @@ var usersRouter = require('./routes/users');
 var adminRouter = require('./routes/admin');
 var categoryRouter = require('./routes/category.routes');
 var homeRouter = require('./routes/home.routes');
+var telegramLinksRouter = require('./routes/telegramlink.routes');
 
 var app = express();
 app.use(cors());
@@ -26,5 +27,6 @@ app.use('/users', usersRouter);
 app.use('/admin', adminRouter);
 app.use('/categories', categoryRouter);
 app.use('/home', homeRouter);
+app.use('/telegram-links', telegramLinksRouter);
 
 module.exports = app;

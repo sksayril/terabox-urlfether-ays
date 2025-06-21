@@ -301,7 +301,7 @@ router.get('/subscriptions', adminAuthMiddleware, async (req, res) => {
 
 /**
  * @route POST /admin/top-data
- * @desc Create top data
+ * @desc Create or Update top data (Only one entry allowed - Singleton)
  * @access Private (Admin only)
  */
 router.post('/top-data', requireAdmin, async (req, res) => {
@@ -315,18 +315,40 @@ router.post('/top-data', requireAdmin, async (req, res) => {
       });
     }
 
-    const topData = await TopData.create({
-      title,
-      textdata,
-      description,
-      order: order || 0,
-      isActive: true
-    });
+    // Check if top data already exists
+    let topData = await TopData.findOne();
 
-    res.status(201).json({
-      success: true,
-      data: topData
-    });
+    if (topData) {
+      // Update existing data
+      topData.title = title;
+      topData.textdata = textdata;
+      topData.description = description || '';
+      topData.order = order || 0;
+      topData.isActive = true;
+      
+      await topData.save();
+
+      res.status(200).json({
+        success: true,
+        message: 'Top data updated successfully',
+        data: topData
+      });
+    } else {
+      // Create new data (first time)
+      topData = await TopData.create({
+        title,
+        textdata,
+        description,
+        order: order || 0,
+        isActive: true
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Top data created successfully',
+        data: topData
+      });
+    }
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -337,12 +359,19 @@ router.post('/top-data', requireAdmin, async (req, res) => {
 
 /**
  * @route GET /admin/top-data
- * @desc Get all top data
+ * @desc Get the single top data entry
  * @access Private (Admin only)
  */
 router.get('/top-data', requireAdmin, async (req, res) => {
   try {
-    const topData = await TopData.find().sort({ order: 1, createdAt: -1 });
+    const topData = await TopData.findOne();
+    
+    if (!topData) {
+      return res.status(404).json({
+        success: false,
+        message: 'No top data found'
+      });
+    }
     
     res.status(200).json({
       success: true,
@@ -357,9 +386,15 @@ router.get('/top-data', requireAdmin, async (req, res) => {
 });
 router.get('/get-top-data', async (req, res) => {
   try {
-    const topData = await TopData.find()
-      .sort({ order: 1, createdAt: -1 })
+    const topData = await TopData.findOne()
       .select('title textdata description isActive order createdAt');
+    
+    if (!topData) {
+      return res.status(404).json({
+        success: false,
+        message: 'No top data found'
+      });
+    }
     
     res.status(200).json({
       success: true,
@@ -374,24 +409,32 @@ router.get('/get-top-data', async (req, res) => {
 });
 
 /**
- * @route PUT /admin/top-data/:id
- * @desc Update top data
+ * @route POST /admin/top-data/update
+ * @desc Update the single top data entry
  * @access Private (Admin only)
  */
-router.post('/top-data/:id', requireAdmin, async (req, res) => {
+router.post('/top-data/update', requireAdmin, async (req, res) => {
   try {
     const { title, textdata, description, order, isActive } = req.body;
-    const topData = await TopData.findById(req.params.id);
+
+    if (!title || !textdata) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and text data are required'
+      });
+    }
+
+    const topData = await TopData.findOne();
 
     if (!topData) {
       return res.status(404).json({
         success: false,
-        message: 'Top data not found'
+        message: 'No top data found to update'
       });
     }
 
-    if (title) topData.title = title;
-    if (textdata) topData.textdata = textdata;
+    topData.title = title;
+    topData.textdata = textdata;
     if (description !== undefined) topData.description = description;
     if (order !== undefined) topData.order = order;
     if (isActive !== undefined) topData.isActive = isActive;
@@ -400,6 +443,7 @@ router.post('/top-data/:id', requireAdmin, async (req, res) => {
 
     res.status(200).json({
       success: true,
+      message: 'Top data updated successfully',
       data: topData
     });
   } catch (error) {
@@ -411,22 +455,22 @@ router.post('/top-data/:id', requireAdmin, async (req, res) => {
 });
 
 /**
- * @route DELETE /admin/top-data/:id
- * @desc Delete top data
+ * @route POST /admin/top-data/delete
+ * @desc Delete the single top data entry
  * @access Private (Admin only)
  */
-router.delete('/top-data/:id', requireAdmin, async (req, res) => {
+router.post('/top-data/delete', requireAdmin, async (req, res) => {
   try {
-    const topData = await TopData.findById(req.params.id);
+    const topData = await TopData.findOne();
 
     if (!topData) {
       return res.status(404).json({
         success: false,
-        message: 'Top data not found'
+        message: 'No top data found to delete'
       });
     }
 
-    await topData.remove();
+    await topData.deleteOne();
 
     res.status(200).json({
       success: true,
