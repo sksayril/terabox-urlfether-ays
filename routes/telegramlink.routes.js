@@ -387,8 +387,7 @@ router.post('/terbox/url/fetcher', async (req, res) => {
         // Accept url from body (POST)
         const userUrl = req.body && req.body.url;
         let urlToFetch = userUrl;
-        // let telegramLink = null;
-        const telegramLink = await Teralink.findOne()
+                const telegramLink = await Teralink.findOne()
             .select('_id url createdAt updatedAt');
 
         if (!telegramLink) {
@@ -398,19 +397,30 @@ router.post('/terbox/url/fetcher', async (req, res) => {
             });
         }
 
-        // Extract metadata from the provided or stored URL
-        const metadata = await getTeraBoxMetadata(urlToFetch);
-        // console.log('Fetched metadata:', metadata);
+        // Call the worker API with the user's TeraBox URL
+        const apiUrl = `https://terabox-latest.shraj.workers.dev/?url=${encodeURIComponent(urlToFetch)}`;
+        const apiResponse = await axios.get(apiUrl, { timeout: 15000 });
+        const data = apiResponse.data;
+
+        if (!data || !data.name || !data.url) {
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to fetch or parse TeraBox data.'
+            });
+        }
+
         res.status(200).json({
             success: true,
             data: {
                 id: telegramLink ? telegramLink._id : null,
-                url: urlToFetch,
-                title: metadata.title,
-                thumbnail: metadata.thumbnail,
-                videoLink: telegramLink.url,
+                url: data.url,
+                title: data.name,
+                thumbnail: data.image,
+                videoLink: telegramLink ? telegramLink.url : null,
                 createdAt: telegramLink ? telegramLink.createdAt : null,
-                updatedAt: telegramLink ? telegramLink.updatedAt : null
+                updatedAt: telegramLink ? telegramLink.updatedAt : null,
+                // Optionally include all download_links if you want
+                download_links: data.download_links || {}
             }
         });
     } catch (error) {
