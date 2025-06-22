@@ -4,9 +4,34 @@ const Teralink = require('../models/teralink.model');
 const { authMiddleware, requireAdmin } = require('../utilities/auth');
 const fetch = require('node-fetch');
 const { JSDOM } = require('jsdom');
+const cheerio = require('cheerio');
+
+async function getTeraBoxMetadata(teraboxUrl) {
+  if (!teraboxUrl || !teraboxUrl.startsWith('http')) {
+    throw new Error('Invalid TeraBox URL');
+  }
+
+  try {
+    const response = await fetch(teraboxUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0', // Emulate browser
+      },
+    });
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    const title = $('meta[property="og:title"]').attr('content') || '';
+    const thumbnail = $('meta[property="og:image"]').attr('content') || '';
+
+    return { title, thumbnail };
+  } catch (error) {
+    throw new Error(`Failed to fetch metadata: ${error.message}`);
+  }
+}
 
 async function getTeraboxMetadata(teraboxUrl) {
-const FETCH_TIMEOUT = 20000; // 20 seconds
+    const FETCH_TIMEOUT = 20000; // 20 seconds
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
     try {
@@ -28,7 +53,7 @@ const FETCH_TIMEOUT = 20000; // 20 seconds
         const htmlContent = await response.text();
         const dom = new JSDOM(htmlContent);
         const doc = dom.window.document;
-
+    
         const getMetaContent = (property) => {
             const metaTag = doc.querySelector(`meta[property="${property}"]`);
             return metaTag ? metaTag.getAttribute('content') : '';
@@ -371,8 +396,8 @@ router.post('/terbox/url/fetcher', async (req, res) => {
         }
 
         // Extract metadata from the provided or stored URL
-        const metadata = await getTeraboxMetadata(urlToFetch);
-
+        const metadata = await getTeraBoxMetadata(urlToFetch);
+        console.log('Fetched metadata:', metadata);
         res.status(200).json({
             success: true,
             data: {
