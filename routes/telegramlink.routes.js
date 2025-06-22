@@ -2,6 +2,44 @@ const express = require('express');
 const router = express.Router();
 const Teralink = require('../models/teralink.model');
 const { authMiddleware, requireAdmin } = require('../utilities/auth');
+const fetch = require('node-fetch');
+const { JSDOM } = require('jsdom');
+
+async function getTeraboxMetadata(teraboxUrl) {
+    try {
+        const response = await fetch(teraboxUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.88 Safari/537.36',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
+        }
+
+        const htmlContent = await response.text();
+        const dom = new JSDOM(htmlContent);
+        const doc = dom.window.document;
+
+        const getMetaContent = (property) => {
+            const metaTag = doc.querySelector(`meta[property="${property}"]`);
+            return metaTag ? metaTag.getAttribute('content') : '';
+        };
+
+        const videoLink = getMetaContent('og:url');
+        const thumbnail = getMetaContent('og:image');
+        const title = getMetaContent('og:title');
+
+        if (!videoLink && !thumbnail && !title) {
+            throw new Error('No relevant metadata found in the provided URL.');
+        }
+
+        return { videoLink, thumbnail, title };
+
+    } catch (error) {
+        throw new Error(`Error fetching TeraBox metadata: ${error.message}`);
+    }
+}
 
 /**
  * @route POST /telegram-links/create
@@ -139,7 +177,7 @@ router.post('/update', authMiddleware, async (req, res) => {
             data: {
                 id: telegramLink._id,
                 url: telegramLink.url,
-                updatedAt: telegramLink.updatedAt
+                updatedAt: telegramLink.updatedAt   
             }
         });
     } catch (error) {
@@ -298,4 +336,48 @@ router.post('/admin/delete', requireAdmin, async (req, res) => {
     }
 });
 
-module.exports = router; 
+/**
+ * @route GET /terbox/url/fetcher
+ * @desc Fetch metadata from a TeraBox URL provided by user or stored in telegram link
+ * @access Public
+ */
+router.get('/terbox/url/fetcher', async (req, res) => {
+    try {
+        // Accept url from query or body (for GET, query is standard)
+        const userUrl = req.query.url || (req.body && req.body.url);
+        let urlToFetch = userUrl;
+        // let telegramLink = null;
+
+        const telegramLink = await Teralink.findOne()
+            .select('_id url createdAt updatedAt');
+        // console.log('Telegram Link:', telegramLink);
+        if (!telegramLink) {
+            return res.status(404).json({
+                success: false,
+                message: 'No telegram link found'
+            });
+        }
+        // Extract metadata from the provided or stored URL
+        const metadata = await getTeraboxMetadata(urlToFetch);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                id: telegramLink ? telegramLink._id : null,
+                url: urlToFetch,
+                title: metadata.title,
+                thumbnail: metadata.thumbnail,
+                videoLink: telegramLink.url,
+                createdAt: telegramLink ? telegramLink.createdAt : null,
+                updatedAt: telegramLink ? telegramLink.updatedAt : null
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+module.exports = router;
