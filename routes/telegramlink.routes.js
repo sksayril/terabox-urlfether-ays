@@ -6,12 +6,17 @@ const fetch = require('node-fetch');
 const { JSDOM } = require('jsdom');
 
 async function getTeraboxMetadata(teraboxUrl) {
+    const FETCH_TIMEOUT = 8000; // 8 seconds
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
     try {
         const response = await fetch(teraboxUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.88 Safari/537.36',
             },
+            signal: controller.signal
         });
+        clearTimeout(timeout);
 
         if (!response.ok) {
             throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
@@ -30,6 +35,7 @@ async function getTeraboxMetadata(teraboxUrl) {
         const thumbnail = getMetaContent('og:image');
         const title = getMetaContent('og:title');
 
+        // Return whatever data is available, even if some fields are missing
         if (!videoLink && !thumbnail && !title) {
             throw new Error('No relevant metadata found in the provided URL.');
         }
@@ -37,6 +43,10 @@ async function getTeraboxMetadata(teraboxUrl) {
         return { videoLink, thumbnail, title };
 
     } catch (error) {
+        clearTimeout(timeout);
+        if (error.name === 'AbortError') {
+            throw new Error('Request timed out while fetching TeraBox metadata.');
+        }
         throw new Error(`Error fetching TeraBox metadata: ${error.message}`);
     }
 }
