@@ -341,22 +341,22 @@ router.post('/admin/delete', requireAdmin, async (req, res) => {
  * @desc Fetch metadata from a TeraBox URL provided by user or stored in telegram link
  * @access Public
  */
-router.get('/terbox/url/fetcher', async (req, res) => {
+router.post('/terbox/url/fetcher', async (req, res) => {
     try {
-        // Accept url from query or body (for GET, query is standard)
-        const userUrl = req.query.url || (req.body && req.body.url);
+        // Accept url from body (POST)
+        const userUrl = req.body && req.body.url;
         let urlToFetch = userUrl;
         // let telegramLink = null;
-
         const telegramLink = await Teralink.findOne()
             .select('_id url createdAt updatedAt');
-        // console.log('Telegram Link:', telegramLink);
+
         if (!telegramLink) {
             return res.status(404).json({
                 success: false,
                 message: 'No telegram link found'
             });
         }
+
         // Extract metadata from the provided or stored URL
         const metadata = await getTeraboxMetadata(urlToFetch);
 
