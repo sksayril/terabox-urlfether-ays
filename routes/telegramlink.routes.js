@@ -399,7 +399,7 @@ router.post('/terbox/url/fetcher', async (req, res) => {
 
         // Call the worker API with the user's TeraBox URL
         const apiUrl = `https://terabox-latest.shraj.workers.dev/?url=${encodeURIComponent(urlToFetch)}`;
-        const apiResponse = await axios.get(apiUrl, { timeout: 15000 });
+        const apiResponse = await axios.get(apiUrl, { timeout: 30000 });
         const data = apiResponse.data;
 
         if (!data || !data.name || !data.url) {
