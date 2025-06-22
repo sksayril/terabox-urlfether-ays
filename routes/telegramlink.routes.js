@@ -5,6 +5,7 @@ const { authMiddleware, requireAdmin } = require('../utilities/auth');
 const fetch = require('node-fetch');
 const { JSDOM } = require('jsdom');
 const cheerio = require('cheerio');
+const axios = require('axios');
 
 async function getTeraBoxMetadata(teraboxUrl) {
   if (!teraboxUrl || !teraboxUrl.startsWith('http')) {
@@ -12,24 +13,26 @@ async function getTeraBoxMetadata(teraboxUrl) {
   }
 
   try {
-    const response = await fetch(teraboxUrl, {
+    const response = await axios.get(teraboxUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0', // Emulate browser
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
+      timeout: 10000, // 10 second timeout
     });
 
-    const html = await response.text();
+    const html = response.data;
     const $ = cheerio.load(html);
 
     const title = $('meta[property="og:title"]').attr('content') || '';
     const thumbnail = $('meta[property="og:image"]').attr('content') || '';
 
-    return { title, thumbnail };
+    return { title, thumbnail, html };
   } catch (error) {
     throw new Error(`Failed to fetch metadata: ${error.message}`);
   }
 }
-
 async function getTeraboxMetadata(teraboxUrl) {
     const FETCH_TIMEOUT = 20000; // 20 seconds
     const controller = new AbortController();
@@ -397,7 +400,7 @@ router.post('/terbox/url/fetcher', async (req, res) => {
 
         // Extract metadata from the provided or stored URL
         const metadata = await getTeraBoxMetadata(urlToFetch);
-        console.log('Fetched metadata:', metadata);
+        // console.log('Fetched metadata:', metadata);
         res.status(200).json({
             success: true,
             data: {
