@@ -354,4 +354,303 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     }
 });
 
+// POST method endpoints for UPDATE and DELETE operations
+
+/**
+ * @route POST /categories/update-main/:id
+ * @desc Update a main category (Admin only) - POST method
+ * @access Private (Admin only)
+ */
+router.post('/update-main/:id', requireAdmin, async (req, res) => {
+    try {
+        const { name } = req.body;
+
+        if (!name) {
+            return res.status(400).json({
+                success: false,
+                message: 'Name is required'
+            });
+        }
+
+        const category = await Category.findOne({ 
+            _id: req.params.id,
+            isMainCategory: true 
+        });
+
+        if (!category) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Main category not found' 
+            });
+        }
+
+        category.name = name;
+        await category.save();
+
+        res.json({
+            success: true,
+            message: 'Main category updated successfully',
+            data: {
+                categoryId: category._id,
+                name: category.name,
+                isMainCategory: true
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
+    }
+});
+
+/**
+ * @route POST /categories/update-sub/:id
+ * @desc Update a subcategory (Admin only) - POST method
+ * @access Private (Admin only)
+ */
+router.post('/update-sub/:id', requireAdmin, upload.single('image'), async (req, res) => {
+    try {
+        const { name, title, telegramUrl, isPremium } = req.body;
+
+        if (!name || !title || !telegramUrl) {
+            return res.status(400).json({
+                success: false,
+                message: 'Name, title, and telegram URL are required'
+            });
+        }
+
+        const category = await Category.findOne({ 
+            _id: req.params.id,
+            isMainCategory: false 
+        });
+
+        if (!category) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Subcategory not found' 
+            });
+        }
+
+        // Update fields
+        category.name = name;
+        category.title = title;
+        category.telegramUrl = telegramUrl;
+        category.isPremium = isPremium === 'true' || isPremium === true;
+
+        if (req.file) {
+            category.imageUrl = req.file.location;
+        }
+
+        await category.save();
+
+        res.json({
+            success: true,
+            message: 'Subcategory updated successfully',
+            data: {
+                categoryId: category._id,
+                name: category.name,
+                parentCategoryId: category.parentCategory,
+                title: category.title,
+                imageUrl: category.imageUrl,
+                telegramUrl: category.telegramUrl,
+                isPremium: category.isPremium
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
+    }
+});
+
+/**
+ * @route POST /categories/delete-main/:id
+ * @desc Delete a main category and all its subcategories (Admin only) - POST method
+ * @access Private (Admin only)
+ */
+router.post('/delete-main/:id', requireAdmin, async (req, res) => {
+    try {
+        const category = await Category.findOne({ 
+            _id: req.params.id,
+            isMainCategory: true 
+        });
+        
+        if (!category) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Main category not found' 
+            });
+        }
+
+        // Delete all subcategories first
+        const deletedSubcategories = await Category.deleteMany({ 
+            parentCategory: category._id 
+        });
+
+        // Delete the main category
+        await category.deleteOne();
+
+        res.json({ 
+            success: true,
+            message: 'Main category and all subcategories deleted successfully',
+            data: {
+                deletedMainCategory: category.name,
+                deletedSubcategoriesCount: deletedSubcategories.deletedCount
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
+    }
+});
+
+/**
+ * @route POST /categories/delete-sub/:id
+ * @desc Delete a subcategory (Admin only) - POST method
+ * @access Private (Admin only)
+ */
+router.post('/delete-sub/:id', requireAdmin, async (req, res) => {
+    try {
+        const category = await Category.findOne({ 
+            _id: req.params.id,
+            isMainCategory: false 
+        });
+        
+        if (!category) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Subcategory not found' 
+            });
+        }
+
+        await category.deleteOne();
+
+        res.json({ 
+            success: true,
+            message: 'Subcategory deleted successfully',
+            data: {
+                deletedCategory: category.name,
+                parentCategoryId: category.parentCategory
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
+    }
+});
+
+/**
+ * @route POST /categories/update/:id
+ * @desc Update any category (main or sub) (Admin only) - POST method
+ * @access Private (Admin only)
+ */
+router.post('/update/:id', requireAdmin, upload.single('image'), async (req, res) => {
+    try {
+        const { name, title, telegramUrl, isPremium } = req.body;
+
+        if (!name) {
+            return res.status(400).json({
+                success: false,
+                message: 'Name is required'
+            });
+        }
+
+        const category = await Category.findById(req.params.id);
+
+        if (!category) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Category not found' 
+            });
+        }
+
+        // Update name for all categories
+        category.name = name;
+
+        // Only update these fields for subcategories
+        if (!category.isMainCategory) {
+            if (title) category.title = title;
+            if (telegramUrl) category.telegramUrl = telegramUrl;
+            if (isPremium !== undefined) category.isPremium = isPremium === 'true' || isPremium === true;
+
+            if (req.file) {
+                category.imageUrl = req.file.location;
+            }
+        }
+
+        await category.save();
+
+        res.json({
+            success: true,
+            message: `${category.isMainCategory ? 'Main category' : 'Subcategory'} updated successfully`,
+            data: {
+                categoryId: category._id,
+                name: category.name,
+                isMainCategory: category.isMainCategory,
+                parentCategoryId: category.parentCategory,
+                title: category.title,
+                imageUrl: category.imageUrl,
+                telegramUrl: category.telegramUrl,
+                isPremium: category.isPremium
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
+    }
+});
+
+/**
+ * @route POST /categories/delete/:id
+ * @desc Delete any category (main or sub) (Admin only) - POST method
+ * @access Private (Admin only)
+ */
+router.post('/delete/:id', requireAdmin, async (req, res) => {
+    try {
+        const category = await Category.findById(req.params.id);
+        
+        if (!category) {
+            return res.status(404).json({ 
+                success: false,
+                message: 'Category not found' 
+            });
+        }
+
+        let deletedSubcategoriesCount = 0;
+
+        // If it's a main category, delete all its subcategories first
+        if (category.isMainCategory) {
+            const deletedSubcategories = await Category.deleteMany({ 
+                parentCategory: category._id 
+            });
+            deletedSubcategoriesCount = deletedSubcategories.deletedCount;
+        }
+
+        await category.deleteOne();
+
+        res.json({ 
+            success: true,
+            message: `${category.isMainCategory ? 'Main category' : 'Subcategory'} deleted successfully`,
+            data: {
+                deletedCategory: category.name,
+                isMainCategory: category.isMainCategory,
+                deletedSubcategoriesCount: deletedSubcategoriesCount
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
+    }
+});
+
 module.exports = router; 
