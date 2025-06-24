@@ -128,7 +128,7 @@ router.get('/users/main',  async (req, res) => {
     try {
         const categories = await Category.find({ isMainCategory: true })
             .select('_id name')
-            .sort({ name: 1 });
+            .sort({ _id: 1 });
 
         res.json({
             success: true,
@@ -653,4 +653,4 @@ router.post('/delete/:id', requireAdmin, async (req, res) => {
     }
 });
 
-module.exports = router; 
+module.exports = router;
