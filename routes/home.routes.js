@@ -97,6 +97,57 @@ router.post('/premium-banner', requireAdmin, upload.array('banners', 5), handleS
     }
 });
 
+// Delete premium banner (Admin only)
+router.post('/delete-premium-banner', requireAdmin, async (req, res) => {
+    try {
+        const { bannerIndex } = req.body;
+
+        if (bannerIndex === undefined || bannerIndex === null) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'Banner index is required' 
+            });
+        }
+
+        const home = await Home.findOne({ isActive: true });
+        if (!home) {
+            return res.status(404).json({
+                success: false,
+                message: 'Home content not found'
+            });
+        }
+
+        // Make sure premiumBannerUrls is always an array
+        const existingBanners = Array.isArray(home.premiumBannerUrls) ? home.premiumBannerUrls : [];
+        
+        if (bannerIndex < 0 || bannerIndex >= existingBanners.length) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid banner index'
+            });
+        }
+
+        // Remove the banner at the specified index
+        existingBanners.splice(bannerIndex, 1);
+        home.premiumBannerUrls = existingBanners;
+        await home.save();
+
+        res.json({
+            success: true,
+            message: 'Premium banner deleted successfully',
+            data: {
+                premiumBannerUrls: existingBanners
+            }
+        });
+    } catch (error) {
+        console.error('Error in deleting premium banner:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // Get home content for public
 router.get('/', async (req, res) => {
     try {
